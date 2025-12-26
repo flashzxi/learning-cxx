@@ -7,8 +7,12 @@ struct Tensor4D {
     unsigned int shape[4];
     T *data;
 
-    Tensor4D(unsigned int const shape_[4], T const *data_) {
-        unsigned int size = 1;
+    Tensor4D(unsigned int const* shape_, T const *data_) {
+        unsigned int size = shape_[0] * shape_[1] * shape_[2] * shape_[3];
+        shape[0] = shape_[0];
+        shape[1] = shape_[1];
+        shape[2] = shape_[2];
+        shape[3] = shape_[3];
         // TODO: 填入正确的 shape 并计算 size
         data = new T[size];
         std::memcpy(data, data_, size * sizeof(T));
@@ -21,6 +25,13 @@ struct Tensor4D {
     Tensor4D(Tensor4D const &) = delete;
     Tensor4D(Tensor4D &&) noexcept = delete;
 
+    size_t pos(size_t i, size_t j, size_t k, size_t l) const {
+        return i * shape[1] * shape[2] * shape[3]
+                + j * shape[2] * shape[3]
+                + k * shape[3]
+                + l;
+    }
+
     // 这个加法需要支持“单向广播”。
     // 具体来说，`others` 可以具有与 `this` 不同的形状，形状不同的维度长度必须为 1。
     // `others` 长度为 1 但 `this` 长度不为 1 的维度将发生广播计算。
@@ -28,6 +39,39 @@ struct Tensor4D {
     // 则 `this` 与 `others` 相加时，3 个形状为 `[1, 2, 1, 4]` 的子张量各自与 `others` 对应项相加。
     Tensor4D &operator+=(Tensor4D const &others) {
         // TODO: 实现单向广播的加法
+        bool extend_dim[4] = {false, false, false, false};
+        bool need_expend = false;
+        for (auto i = 0u; i < 4; ++i) {
+            if (shape[i] != others.shape[i]) {
+                if (1 == others.shape[i]) {
+                    need_expend = true;
+                    extend_dim[i] = true;
+                } else {
+                    throw std::invalid_argument("Tensor4D shape should have the same shape.");
+                }
+            }
+        }
+
+        if (!need_expend) {
+            size_t size = shape[0] * shape[1] * shape[2] * shape[3];
+            for (auto i = 0u; i < size; ++i) {
+                data[i] += others.data[i];
+            }
+        } else {
+            for (int i = 0; i < shape[0]; ++i) {
+                for (int j = 0; j < shape[1]; ++j) {
+                    for (int k = 0; k < shape[2]; ++k) {
+                        for (int l = 0; l < shape[3]; ++l) {
+                            data[pos(i,j,k,l)] += others.data[others.pos(
+                                extend_dim[0] ? 0: i,
+                                extend_dim[1] ? 0: j,
+                                extend_dim[2] ? 0: k,
+                                extend_dim[3] ? 0: l)];
+                        }
+                    }
+                }
+            }
+        }
         return *this;
     }
 };
