@@ -17,3 +17,6 @@ target("summary")
     set_kind("binary")
     add_deps("test")
     add_files("learn/summary.cpp")
+    if is_plat("linux", "bsd") then
+        add_links("pthread")
+    end
